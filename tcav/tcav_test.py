@@ -17,6 +17,7 @@ from __future__ import print_function
 from tcav.activation_generator import ActivationGeneratorBase
 from tcav.cav import CAV
 from tcav.tcav import TCAV
+from tcav.hparams import HParams
 from tensorflow.python.platform import googletest
 import numpy as np
 import tensorflow as tf
@@ -63,7 +64,7 @@ class TcavTest(googletest.TestCase):
     self.class_id = 0
     self.bottleneck = 'bn'
     self.cav_dir = None
-    self.hparams = tf.contrib.training.HParams(model_type='linear', alpha=.01)
+    self.hparams = HParams(model_type='linear', alpha=.01)
     self.cav = CAV(self.concepts,
                        self.bottleneck,
                        self.hparams)

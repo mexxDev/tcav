@@ -22,6 +22,7 @@ import tensorflow as tf
 from sklearn import linear_model
 from six.moves import range
 from tcav.cav import CAV, get_or_train_cav
+from tcav.hparams import HParams
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import googletest
 
@@ -36,7 +37,7 @@ class CavTest(googletest.TestCase):
 
     The cav instance uses preset values.
     """
-    self.hparams = tf.contrib.training.HParams(
+    self.hparams = HParams(
       model_type='linear', alpha=.01, max_iter=1000, tol=1e-3)
     self.concepts = ['concept1', 'concept2']
     self.bottleneck = 'bottleneck'
