@@ -473,3 +473,73 @@ class KerasModelWrapper(ModelWrapper):
   def get_inputs_and_outputs_and_ends(self):
     self.ends['input'] = self.model.inputs[0]
     self.ends['prediction'] = self.model.outputs[0]
+
+
+class CustomPublicImageModelWrapper(model.ImageModelWrapper):
+  """Thanks to https://gist.github.com/Gareth001/e600d2fbc09e690c4333388ec5f06587#file-tcav-inceptionv3-keras-py"""
+    def __init__(self, sess, labels, image_shape,
+                endpoints_dict, name, image_value_range):
+        super(self.__class__, self).__init__(image_shape)
+        
+        self.sess = sess
+        self.labels = labels
+        self.model_name = name
+        self.image_value_range = image_value_range
+
+        # get endpoint tensors
+        self.ends = {'input': endpoints_dict['input_tensor'], 'prediction': endpoints_dict['prediction_tensor']}
+        
+        self.bottlenecks_tensors = self.get_bottleneck_tensors()
+        
+        # load the graph from the backend
+        graph = tf.compat.v1.get_default_graph()
+
+        # Construct gradient ops.
+        with graph.as_default():
+            self.y_input = tf.compat.v1.placeholder(tf.int64, shape=[None])
+
+            self.pred = tf.expand_dims(self.ends['prediction'][0], 0)
+            self.loss = tf.reduce_mean(
+                tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2(
+                    labels=tf.one_hot(
+                        self.y_input,
+                        self.ends['prediction'].get_shape().as_list()[1]),
+                    logits=self.pred))
+        self._make_gradient_tensors()
+
+    def id_to_label(self, idx):
+        return self.labels[idx]
+
+    def label_to_id(self, label):
+        return self.labels.index(label)
+
+    @staticmethod
+    def create_input(t_input, image_value_range):
+        """Create input tensor."""
+        def forget_xy(t):
+            """Forget sizes of dimensions [1, 2] of a 4d tensor."""
+            zero = tf.identity(0)
+            return t[:, zero:, zero:, :]
+
+        t_prep_input = t_input
+        if len(t_prep_input.shape) == 3:
+            t_prep_input = tf.expand_dims(t_prep_input, 0)
+        t_prep_input = forget_xy(t_prep_input)
+        lo, hi = image_value_range
+        t_prep_input = lo + t_prep_input * (hi-lo)
+        return t_input, t_prep_input
+
+    @staticmethod
+    def get_bottleneck_tensors():
+        """Add Inception bottlenecks and their pre-Relu versions to endpoints dict."""
+        graph = tf.compat.v1.get_default_graph()
+        bn_endpoints = {}
+        for op in graph.get_operations():
+            # change this below string to change which layers are considered bottlenecks
+            # use 'ConcatV2' for InceptionV3
+            # use 'MaxPool' for VGG16 (for example)
+            if 'ConcatV2' in op.type:
+                name = op.name.split('/')[0]
+                bn_endpoints[name] = op.outputs[0]
+            
+        return bn_endpoints
